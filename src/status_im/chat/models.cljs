@@ -161,9 +161,10 @@
 
 (fx/defn add-public-chat
   "Adds new public group chat to db"
-  [cofx topic]
+  [cofx topic profile-public-key]
   (upsert-chat cofx
                {:chat-id                        topic
+                :profile-public-key             profile-public-key
                 :is-active                      true
                 :name                           topic
                 :chat-name                      (str "#" topic)
@@ -259,14 +260,17 @@
               (transport.filters/load-chat chat-id)
               (navigate-to-chat chat-id))))
 
+(defn profile-chat-topic [public-key]
+  (str "@" public-key))
+
 (fx/defn start-public-chat
   "Starts a new public chat"
-  [cofx topic {:keys [dont-navigate?]}]
+  [cofx topic {:keys [dont-navigate? profile-public-key]}]
   (if (active-chat? cofx topic)
     (when-not dont-navigate?
       (navigate-to-chat cofx topic))
     (fx/merge cofx
-              (add-public-chat topic)
+              (add-public-chat topic profile-public-key)
               (transport.filters/load-chat topic)
               #(when-not dont-navigate?
                  (navigate-to-chat % topic)))))
@@ -289,11 +293,15 @@
   [{:keys [db] :as cofx} identity]
   (let [my-public-key (get-in db [:multiaccount :public-key])]
     (if (= my-public-key identity)
-      (navigation/navigate-to-cofx cofx :profile-stack {:screen :my-profile})
       (fx/merge
        cofx
-       {:db (assoc db :contacts/identity identity)}
-       (navigation/navigate-to-cofx :profile nil)))))
+       {:db (assoc db :inactive-chat-id (get db :current-chat-id))}
+       (navigation/navigate-to-cofx :profile-stack {:screen :my-profile}))
+      (fx/merge
+       cofx
+       {:db (assoc db :contacts/identity identity :inactive-chat-id (get db :current-chat-id))
+        :dispatch [:navigate-to :profile]}
+       (navigation/navigate-to-cofx :profile-stack {:screen :my-profile})))))
 
 (fx/defn mute-chat-failed
   {:events [::mute-chat-failed]}

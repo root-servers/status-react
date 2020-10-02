@@ -1263,4 +1263,53 @@
                 :chat (chat.loading/load-messages %)
                 :multiaccounts (keycard/multiaccounts-screen-did-load %)
                 (:wallet-stack :wallet) (wallet.events/wallet-will-focus %)
+                ;;when we open profile from contacts
+                :profile
+                (let [public-key (get-in % [:db :contacts/identity])
+                      chat-id (chat/profile-chat-topic public-key)]
+                  (fx/merge %
+                            (chat/start-public-chat chat-id {:dont-navigate? true :profile-public-key public-key})
+                            (chat/preload-chat-data chat-id)))
+                ;;when we close profile
+                (:my-profile :profile-stack)
+                (let [public-key (get-in % [:db :multiaccount :public-key])
+                      chat-id (chat/profile-chat-topic public-key)]
+                  (fx/merge %
+                            (chat/start-public-chat chat-id {:dont-navigate? true :profile-public-key public-key})
+                            (chat/preload-chat-data chat-id)))
+                nil))))
+
+(handlers/register-handler-fx
+ :screens/tab-will-change
+ (fn [{:keys [db] :as cofx} [_ view-id]]
+   (fx/merge cofx
+             ;;when we leave profile stack we can remove current chat to do not show it when open chat tab
+             #(when (and (#{:my-profile :profile-stack :profile} (get db :view-id)) (get db :current-chat-id))
+                {:db (assoc db :current-chat-id nil)})
+             ;;when we open chat tab we want to remove inactive chat
+             #(when (and (#{:chat} view-id) (get db :inactive-chat-id))
+                {:db (assoc db :inactive-chat-id nil)})
+             ;;when we leave chat tab we want to save current chat as inactive, to use it when we back to chat tab
+             #(when (and (#{:chat} (get db :view-id)) (get db :current-chat-id))
+                {:db (assoc db :inactive-chat-id (get db :current-chat-id))})
+             #(case view-id
+                ;;when we back to chat we want to show inactive chat
+                :chat
+                (chat/preload-chat-data % (get db :inactive-chat-id))
+
+                (:my-profile :profile-stack)
+                (let [public-key (get-in % [:db :multiaccount :public-key])
+                      chat-id (chat/profile-chat-topic public-key)]
+                  (fx/merge %
+                            (chat/start-public-chat chat-id {:dont-navigate? true :profile-public-key public-key})
+                            (chat/offload-all-messages)
+                            (chat/preload-chat-data chat-id)))
+
+                :profile
+                (let [public-key (get-in % [:db :contacts/identity])
+                      chat-id (chat/profile-chat-topic public-key)]
+                  (fx/merge %
+                            (chat/start-public-chat chat-id {:dont-navigate? true :profile-public-key public-key})
+                            (chat/offload-all-messages)
+                            (chat/preload-chat-data chat-id)))
                 nil))))

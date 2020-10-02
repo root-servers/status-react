@@ -607,8 +607,8 @@
  :chats/active-chats
  :<- [::chats]
  (fn [chats]
-   (reduce-kv (fn [acc id {:keys [is-active] :as chat}]
-                (if is-active
+   (reduce-kv (fn [acc id {:keys [is-active profile-public-key] :as chat}]
+                (if (and is-active (not profile-public-key))
                   (assoc acc id chat)
                   acc))
               {}
