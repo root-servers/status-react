@@ -4,7 +4,7 @@ import string
 from support.utilities import get_merged_txs_list
 from tests import marks, unique_password
 from tests.base_test_case import SingleDeviceTestCase
-from tests.users import transaction_senders, basic_user, wallet_users, ens_user_ropsten
+from tests.users import transaction_senders, basic_user, wallet_users, ens_user_ropsten, transaction_recipients
 from views.send_transaction_view import SendTransactionView
 from views.sign_in_view import SignInView
 
@@ -672,3 +672,28 @@ class TestTransactionWalletSingleDevice(SingleDeviceTestCase):
             self.errors.append(warning % (errors['sending_screen']['Network fee'],screen))
         self.errors.verify_no_errors()
 
+    @marks.testrail_id(11111111)
+    @marks.medium
+    def test_send_transaction_with_c1111111ustom_token(self):
+        contract_address = '0x101848D5C5bBca18E6b4431eEdF6B95E9ADF82FA'
+        name = 'Weenus 💪'
+        symbol = 'WEENUS'
+        decimals = '18'
+        sender = transaction_senders['V']
+        receiver = transaction_recipients['K']
+        device_1, device_2 = SignInView(self.drivers[0]), SignInView(self.drivers[1])
+
+        device_1_home, device_2_home = device_1.recover_access(sender['passphrase']), \
+                                       device_2.recover_access(receiver['passphrase'])
+
+        wallet_view_serder = device_1_home.wallet_button.click()
+        wallet_view_serder.set_up_wallet()
+
+        wallet_view_receiver = device_2_home.wallet_button.click()
+        wallet_view_receiver.set_up_wallet()
+
+        amount = '0.012345678912345678'
+        wallet_view_serder.send_transaction(asset_name='STT', amount=amount, recipient=receiver['address'])
+
+        wallet_view_receiver.wait_balance_is_changed('STT')
+        
